@@ -57,14 +57,25 @@
     <div id="filterContainer">
         <h2>Filters</h2>
         <label for="Year">Year</label>
-        <select id="Year" onchange="onYearChange()">
+        <select id="Year" onchange="onFiltersChange()">
             <option value="ALL" selected>All years</option>
             <option value="2015">2015</option>
             <option value="2016">2016</option>
             <option value="2017">2017</option>
             <option value="2018">2018</option>
+        </select><br/>
+        <label for="Entity">Entity</label>
+        <select id="Entity" onchange="onFiltersChange()">
+            <option value="193514531543839" selected>Deltennium Clips Inc. - All classes</option>
+            <option value="193514531543839:800000000000580647">    Officer-Gerry</option>
+            <option value="193514531543839:800000000000580648">    Deltennium Group</option>
+            <option value="193514531543839:Officer-Robyn">    Officer-Robyn</option>
+            <option value="193514531543839:Not Specified">    Not Specified</option>
+            
+            <option value="111514531541111" >Testico - All classes</option>
+            <option value="111514531541111:1">    Class A</option>
+            <option value="111514531541111:2">    Class B</option>
         </select>
-
     </div>
 
 </div>
@@ -75,7 +86,7 @@
 </div>
 @Html.Partial("LiveDemoLink")
 <script>
-    function createDefaultFilter() {
+    function createGlIdFilter(glId) {
         var selectedReportType = getSelectedReportType();
 
         if (selectedReportType == "Compare Companies") {
@@ -86,7 +97,7 @@
                     column: "GlId"
                 },
                 operator: "In",
-                values: ["111514531541111"]
+                values: [glId]
             };
         }
         else if (selectedReportType == "Company By Year") {
@@ -97,7 +108,7 @@
                     column: "GlId"
                 },
                 operator: "In",
-                values: ["111514531541111"]
+                values: [glId]
             };
         }
         else if (selectedReportType == "Accounts By Classes") {
@@ -108,12 +119,65 @@
                     column: "GlId"
                 },
                 operator: "In",
-                values: ["193514531543839"]
+                values: [glId]
             };
         }
     }
 
-    function createYearFilter(year) {
+    function createEntityFilters(glId, classId) {
+        var selectedReportType = getSelectedReportType();
+
+        if (typeof glId == "undefined" && typeof classId == "undefined") {
+            var selectedEntity = getSelectedEntity();
+            glId = selectedEntity.glId;
+            classId = selectedEntity.classId;
+        }
+
+        var glIdFilter = createGlIdFilter(glId);
+
+        if (typeof classId == "undefined") {
+            return [glIdFilter];
+        }
+
+        var classIdFilter;
+
+        if (selectedReportType == "Compare Companies") {
+            classIdFilter = {
+                $schema: "http://powerbi.com/product/schema#basic",
+                target: {
+                    table: "ProfitAndLossFacts",
+                    column: "ClassId"
+                },
+                operator: "In",
+                values: [classId]
+            };
+        }
+        else if (selectedReportType == "Accounts By Classes") {
+            classIdFilter =  {
+                $schema: "http://powerbi.com/product/schema#basic",
+                target: {
+                    table: "ProfitAndLossFactsByClass",
+                    column: "ClassId"
+                },
+                operator: "In",
+                values: [classId]
+            };
+        }
+        else if (selectedReportType == "Company By Year") {
+            // Class filter is not applicable
+            return [glIdFilter];
+        }
+
+        return [glIdFilter, classIdFilter];
+    }
+
+    function createYearFilter() {
+        var year = $("#Year").val();
+
+        if (year == "ALL") {
+            return;
+        }
+
         var selectedReportType = getSelectedReportType();
 
         if (selectedReportType == "Compare Companies") {
@@ -166,15 +230,33 @@
         }
     }
 
-    function onYearChange() {
-        var year = $("#Year").val();
-        var filters = [createDefaultFilter()];
+    function getSelectedEntity() {
+        var entity = $("#Entity").val();
+        var parts = entity.split(":");
+        return {
+            glId: parts[0],
+            classId: parts[1]
+        };
+    }
 
-        if (year != "ALL") {
-            var yearFilter = createYearFilter(year);
+    function onFiltersChange() {
+        var filters = createEntityFilters();
+        var yearFilter = createYearFilter();
+
+        if (typeof yearFilter != "undefined") {
             filters.push(yearFilter);
         }
 
+        setFilters(filters);
+    }
+
+    function onReportTypeChange(e) {
+        var reportName = e.value;
+
+        embedReport(reportName);
+    }
+
+    function setFilters(filters) {
         // Get a reference to the embedded report HTML element
         var embedContainer = $('#reportContainer')[0];
 
@@ -189,14 +271,6 @@
             });
     }
 
-    function onReportTypeChange(e) {
-        var reportName = e.value;
-
-        embedReport(reportName);
-    }
-
-
-
     $(function () {
   
     });
@@ -205,7 +279,7 @@
         if ($("#compareCompaniesReportType").prop("checked")) {
             return "Compare Companies";
         }
-        else if ($("#compareCompaniesReportType").prop("checked")) {
+        else if ($("#companyByYearReportType").prop("checked")) {
             return "Company By Year";
         }
         else return "Accounts By Classes";
@@ -237,7 +311,7 @@
                     embedUrl: reportModel.EmbedUrl,
                     id: reportModel.Id,
                     permissions: models.Permissions.All,
-                    filters: [createDefaultFilter()],
+                    filters: createEntityFilters(),
                     settings: {
                         filterPaneEnabled: false,
                         navContentPaneEnabled: false
