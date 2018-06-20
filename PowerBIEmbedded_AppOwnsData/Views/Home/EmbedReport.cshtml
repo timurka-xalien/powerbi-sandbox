@@ -47,8 +47,9 @@
 </div>
 <p>
     Select report type:<br />
-    <input type="radio" name="ReportType" checked value="Compare Companies" onchange="onReportTypeChange(this)"/>Compare Companies<br />
-    <input type="radio" name="ReportType" value="Company By Year" checked onchange="onReportTypeChange(this)"/>Company by Year
+    <input type="radio" id="compareCompaniesReportType" name="ReportType" value="Compare Companies" onchange="onReportTypeChange(this)" />Compare Companies<br />
+    <input type="radio" id="companyByYearReportType" name="ReportType" value="Company By Year" checked onchange="onReportTypeChange(this)" />Company by Year<br />
+    <input type="radio" id="accountsByClassesReportType" name="ReportType" checked value="Accounts By Classes" onchange="onReportTypeChange(this)" />Accounts By Classes<br />
 </p>
 
 <div>
@@ -74,37 +75,100 @@
 </div>
 @Html.Partial("LiveDemoLink")
 <script>
-    const defaultFilter =
-        {
-            $schema: "http://powerbi.com/product/schema#basic",
-            target: {
-                table: "ProfitAndLossFacts",
-                column: "GlId"
-            },
-            operator: "In",
-            values: ["111514531541111"]
-        };
+    function createDefaultFilter() {
+        var selectedReportType = getSelectedReportType();
+
+        if (selectedReportType == "Compare Companies") {
+            return {
+                $schema: "http://powerbi.com/product/schema#basic",
+                target: {
+                    table: "ProfitAndLossFacts",
+                    column: "GlId"
+                },
+                operator: "In",
+                values: ["111514531541111"]
+            };
+        }
+        else if (selectedReportType == "Company By Year") {
+            return {
+                $schema: "http://powerbi.com/product/schema#basic",
+                target: {
+                    table: "ProfitAndLossFactsByYear",
+                    column: "GlId"
+                },
+                operator: "In",
+                values: ["111514531541111"]
+            };
+        }
+        else if (selectedReportType == "Accounts By Classes") {
+            return {
+                $schema: "http://powerbi.com/product/schema#basic",
+                target: {
+                    table: "ProfitAndLossFactsByClass",
+                    column: "GlId"
+                },
+                operator: "In",
+                values: ["193514531543839"]
+            };
+        }
+    }
 
     function createYearFilter(year) {
-        return {
-            $schema: "http://powerbi.com/product/schema#advanced",
-            target: {
-                table: "ProfitAndLossFacts",
-                column: "StartDateYear"
-            },
-            logicalOperator: "And",
-            conditions: [
-                {
-                    operator: "Is",
-                    value: year
-                }
-            ],
-        };
+        var selectedReportType = getSelectedReportType();
+
+        if (selectedReportType == "Compare Companies") {
+            return {
+                $schema: "http://powerbi.com/product/schema#advanced",
+                target: {
+                    table: "ProfitAndLossFacts",
+                    column: "StartDateYear"
+                },
+                logicalOperator: "And",
+                conditions: [
+                    {
+                        operator: "Is",
+                        value: year
+                    }
+                ],
+            };
+        }
+        else if (selectedReportType == "Company By Year") {
+            return {
+                $schema: "http://powerbi.com/product/schema#advanced",
+                target: {
+                    table: "ProfitAndLossFactsByYear",
+                    column: year
+                },
+                logicalOperator: "And",
+                conditions: [
+                    {
+                        operator: "IsNotBlank",
+                        value: year
+                    }
+                ],
+            };
+        }
+        else if (selectedReportType == "Accounts By Classes") {
+            return {
+                $schema: "http://powerbi.com/product/schema#advanced",
+                target: {
+                    table: "ProfitAndLossFactsByClass",
+                    column: "StartDateYear"
+                },
+                logicalOperator: "And",
+                conditions: [
+                    {
+                        operator: "Is",
+                        value: year
+                    }
+                ],
+            };
+        }
     }
 
     function onYearChange() {
         var year = $("#Year").val();
-        var filters = [defaultFilter];
+        var filters = [createDefaultFilter()];
 
         if (year != "ALL") {
             var yearFilter = createYearFilter(year);
@@ -121,7 +185,7 @@
         // Pay attention that setFilters receives an array.
         report.setFilters(filters)
             .catch(function (errors) {
-                Log.log(errors);
+                alert(JSON.stringify(errors));
             });
     }
 
@@ -131,10 +195,21 @@
         embedReport(reportName);
     }
 
+
+
     $(function () {
   
     });
 
+    function getSelectedReportType() {
+        if ($("#compareCompaniesReportType").prop("checked")) {
+            return "Compare Companies";
+        }
+        else if ($("#compareCompaniesReportType").prop("checked")) {
+            return "Company By Year";
+        }
+        else return "Accounts By Classes";
+    }
 
     function getReportModelByName(reportName) {
         var reportModel = reportModels.find(
@@ -162,7 +237,7 @@
                     embedUrl: reportModel.EmbedUrl,
                     id: reportModel.Id,
                     permissions: models.Permissions.All,
-                    filters: [defaultFilter],
+                    filters: [createDefaultFilter()],
                     settings: {
                         filterPaneEnabled: false,
                         navContentPaneEnabled: false
@@ -219,5 +294,5 @@
 
     // var initialReportModel = getReportModelByName("Company By Year");
 
-    embedReport("Company By Year");
+    embedReport("Accounts By Classes");
 </script>
