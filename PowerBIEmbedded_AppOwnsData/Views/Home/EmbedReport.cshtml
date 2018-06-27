@@ -67,14 +67,14 @@
         <label for="Entity">Entity</label>
         <select id="Entity" onchange="onFiltersChange()">
             <option value="193514531543839" selected>Deltennium Clips Inc. - All classes</option>
-            <option value="193514531543839:800000000000580647">    Officer-Gerry</option>
-            <option value="193514531543839:800000000000580648">    Deltennium Group</option>
-            <option value="193514531543839:Officer-Robyn">    Officer-Robyn</option>
-            <option value="193514531543839:Not Specified">    Not Specified</option>
+            <option value="193514531543839:800000000000580647">---Officer-Gerry</option>
+            <option value="193514531543839:800000000000580648">---Deltennium Group</option>
+            <option value="193514531543839:Officer-Robyn">---Officer-Robyn</option>
+            <option value="193514531543839:Not Specified">---Not Specified</option>
             
             <option value="111514531541111" >Testico - All classes</option>
-            <option value="111514531541111:1">    Class A</option>
-            <option value="111514531541111:2">    Class B</option>
+            <option value="111514531541111:1">---Class A</option>
+            <option value="111514531541111:2">---Class B</option>
         </select>
     </div>
 
@@ -313,8 +313,8 @@
                     permissions: models.Permissions.All,
                     filters: createEntityFilters(),
                     settings: {
-                        filterPaneEnabled: false,
-                        navContentPaneEnabled: false
+                        filterPaneEnabled: true,
+                        navContentPaneEnabled: true
                     }
                 };
 
