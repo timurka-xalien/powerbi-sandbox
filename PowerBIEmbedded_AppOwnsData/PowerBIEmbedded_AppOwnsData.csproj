@@ -231,6 +231,8 @@
     <None Include="Project_Readme.html" />
     <Content Include="scripts\powerbi.js.map" />
     <Content Include="Views\Home\EmbedReportRls.cshtml" />
+    <Content Include="Views\Home\EmbedReportAas.cshtml" />
+    <None Include="Properties\PublishProfiles\xtestpowerbirls - Web Deploy.pubxml" />
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>

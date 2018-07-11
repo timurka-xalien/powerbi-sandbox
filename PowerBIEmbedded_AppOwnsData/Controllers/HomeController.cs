@@ -24,6 +24,7 @@ namespace PowerBIEmbedded_AppOwnsData.Controllers
         private static readonly string GroupId = ConfigurationManager.AppSettings["groupId"];
         private static readonly string ReportId = ConfigurationManager.AppSettings["reportId"];
         private static readonly string ReportRlsId = ConfigurationManager.AppSettings["reportRlsId"];
+        private static readonly string ReportAasId = ConfigurationManager.AppSettings["reportAasId"];
 
         public ActionResult Index()
         {
@@ -95,7 +96,7 @@ namespace PowerBIEmbedded_AppOwnsData.Controllers
                     // This is how you create embed token with effective identities
                     if (!string.IsNullOrEmpty(username))
                     {
-                        var rls = new EffectiveIdentity(username, new List<string> { report.DatasetId });
+                        var rls = new EffectiveIdentity(username, new List<string> { report.DatasetId }, null, "asd");
                         if (!string.IsNullOrWhiteSpace(roles))
                         {
                             var rolesList = new List<string>();
@@ -139,12 +140,27 @@ namespace PowerBIEmbedded_AppOwnsData.Controllers
             return View(result);
         }
 
-        public async Task<ActionResult> EmbedReportRls(string username, string roles)
+        public async Task<ActionResult> EmbedReportRls(string userName, string roles)
         {
+            roles = "User";
+
             var result = new EmbedConfig();
             try
             {
-                result = new EmbedConfig { Username = username, Roles = roles };
+                result.Username = userName;
+                result.Roles = roles;
+
+                if (userName == "Northridge")
+                {
+                    result.Username = userName;
+                    userName = "northridge@bke.email";
+                }
+                else
+                {
+                    result.Username = "Deltennium";
+                    userName = "deltennium@bke.email";
+                }
+
                 var error = GetWebConfigErrors();
                 if (error != null)
                 {
@@ -203,17 +219,144 @@ namespace PowerBIEmbedded_AppOwnsData.Controllers
                     GenerateTokenRequest generateTokenRequestParameters;
 
                     // This is how you create embed token with effective identities
+                    //if (!string.IsNullOrEmpty(gl))
+                    //{
+                    var rls = new EffectiveIdentity(userName, new List<string> { report.DatasetId });
+                    if (!string.IsNullOrWhiteSpace(roles))
+                    {
+                        var rolesList = new List<string>();
+                        rolesList.AddRange(roles.Split(','));
+                        rls.Roles = rolesList;
+                    }
+                    // Generate Embed Token with effective identities.
+                    generateTokenRequestParameters = new GenerateTokenRequest(accessLevel: "view", identities: new List<EffectiveIdentity> { rls });
+                    //}
+                    //else
+                    //{
+                    //    // Generate Embed Token for reports without effective identities.
+                    //    generateTokenRequestParameters = new GenerateTokenRequest(accessLevel: "view");
+                    //}
+
+                    var tokenResponse = await client.Reports.GenerateTokenInGroupAsync(GroupId, report.Id, generateTokenRequestParameters);
+
+                    if (tokenResponse == null)
+                    {
+                        result.ErrorMessage = "Failed to generate embed token.";
+                        return View(result);
+                    }
+
+                    // Generate Embed Configuration.
+                    result.EmbedToken = tokenResponse;
+                    result.EmbedUrl = report.EmbedUrl;
+                    result.Id = report.Id;
+
+                    return View(result);
+                }
+            }
+            catch (HttpOperationException exc)
+            {
+                result.ErrorMessage = string.Format("Status: {0} ({1})\r\nResponse: {2}\r\nRequestId: {3}", exc.Response.StatusCode, (int)exc.Response.StatusCode, exc.Response.Content, exc.Response.Headers["RequestId"].FirstOrDefault());
+            }
+            catch (Exception exc)
+            {
+                result.ErrorMessage = exc.ToString();
+            }
+
+            return View(result);
+        }
+
+        public async Task<ActionResult> EmbedReportAas(string username, string roles)
+        {
+            var result = new EmbedConfig();
+            try
+            {
+                result = new EmbedConfig { Username = username, Roles = roles };
+                var error = GetWebConfigErrors();
+                if (error != null)
+                {
+                    result.ErrorMessage = error;
+                    return View(result);
+                }
+
+                // Create a user password cradentials.
+                var credential = new UserPasswordCredential(Username, Password);
+
+                // Authenticate using created credentials
+                var authenticationContext = new AuthenticationContext(AuthorityUrl);
+                var authenticationResult = await authenticationContext.AcquireTokenAsync(ResourceUrl, ClientId, credential);
+
+                if (authenticationResult == null)
+                {
+                    result.ErrorMessage = "Authentication Failed.";
+                    return View(result);
+                }
+
+                var tokenCredentials = new TokenCredentials(authenticationResult.AccessToken, "Bearer");
+
+                // Create a Power BI Client object. It will be used to call Power BI APIs.
+                using (var client = new PowerBIClient(new Uri(ApiUrl), tokenCredentials))
+                {
+                    // Get a list of reports.
+                    var reports = await client.Reports.GetReportsInGroupAsync(GroupId);
+
+                    Report report;
+                    if (string.IsNullOrEmpty(ReportAasId))
+                    {
+                        // Get the first report in the group.
+                        report = reports.Value.FirstOrDefault();
+                    }
+                    else
+                    {
+                        report = reports.Value.FirstOrDefault(r => r.Id == ReportAasId);
+                    }
+
+                    result.Reports = reports.Value.Select(r => new ReportModel
+                    {
+                        Id = r.Id,
+                        Name = r.Name,
+                        EmbedUrl = r.EmbedUrl
+                    }).ToList();
+
+                    if (report == null)
+                    {
+                        result.ErrorMessage = "Group has no reports.";
+                        return View(result);
+                    }
+
+                    var datasets = await client.Datasets.GetDatasetByIdInGroupAsync(GroupId, report.DatasetId);
+                    result.IsEffectiveIdentityRequired = datasets.IsEffectiveIdentityRequired;
+                    result.IsEffectiveIdentityRolesRequired = datasets.IsEffectiveIdentityRolesRequired;
+                    GenerateTokenRequest generateTokenRequestParameters;
+
+                    // This is how you create embed token with effective identities
                     if (!string.IsNullOrEmpty(username))
                     {
-                        var rls = new EffectiveIdentity(username, new List<string> { report.DatasetId });
-                        if (!string.IsNullOrWhiteSpace(roles))
-                        {
-                            var rolesList = new List<string>();
-                            rolesList.AddRange(roles.Split(','));
-                            rls.Roles = rolesList;
-                        }
+                        var rls = new EffectiveIdentity(
+                            Username, 
+                            new List<string> { report.DatasetId },
+                            null,
+                            "PowerBi itself do not accept any arguments when we request token " +
+                            "(apart from username and list of roles).In PowerBi desktop we can " +
+                            "access username value and use it in filters, etc." +
+                            "My idea was to use username as an argument and pass array of glids " +
+                            "as a username.Then, on PowerBi desktop side we can use contains" +
+                            " logic to filter data.However it turned out that username is limited" +
+                            " to 256 characters.So we can pass up to 15 - 25 glids at most." +
+                            "However we can workaround this limitation by adding some extra " +
+                            "logic of parsing username.I guess that passing multiple glids" +
+                            " to PowerBi will be done for some specific cases.Like comparison " +
+                            "of all clients related to the same zor.In such case we could");
+
+                        //if (!string.IsNullOrWhiteSpace(roles))
+                        //{
+                        //    var rolesList = new List<string>();
+                        //    rolesList.AddRange(roles.Split(','));
+                        //    rls.Roles = rolesList;
+                        //}
                         // Generate Embed Token with effective identities.
-                        generateTokenRequestParameters = new GenerateTokenRequest(accessLevel: "view", identities: new List<EffectiveIdentity> { rls });
+                        generateTokenRequestParameters = new GenerateTokenRequest(
+                            accessLevel: "view", 
+                            identities: new List<EffectiveIdentity> { rls });
                     }
                     else
                     {
@@ -248,7 +391,6 @@ namespace PowerBIEmbedded_AppOwnsData.Controllers
 
             return View(result);
         }
-
 
         public async Task<ContentResult> GetReportEmbedToken(string reportId)
         {

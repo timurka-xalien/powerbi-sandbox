@@ -14,6 +14,8 @@ namespace PowerBIEmbedded_AppOwnsData.Models
 
         public List<ReportModel> Reports { get; set; }
 
+        public string[] CheckedGls { get; set; }
+
         public int MinutesToExpiration
         {
             get
