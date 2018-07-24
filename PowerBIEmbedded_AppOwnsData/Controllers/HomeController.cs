@@ -25,7 +25,7 @@ namespace PowerBIEmbedded_AppOwnsData.Controllers
         private static readonly string ReportId = ConfigurationManager.AppSettings["reportId"];
         private static readonly string ReportRlsId = ConfigurationManager.AppSettings["reportRlsId"];
         private static readonly string ReportAasId = ConfigurationManager.AppSettings["reportAasId"];
-        private static readonly string RlsDatasetId = ConfigurationManager.AppSettings["rlsDatasetId"];
+        private static readonly string DashboardRlsDatasetIds = ConfigurationManager.AppSettings["dashboardRlsDatasetIds"];
 
         public ActionResult Index()
         {
@@ -564,13 +564,9 @@ namespace PowerBIEmbedded_AppOwnsData.Controllers
                         });
                     }
 
-                    var datasets = await client.Datasets.GetDatasetByIdInGroupAsync(GroupId, RlsDatasetId);
-                    result.IsEffectiveIdentityRequired = datasets.IsEffectiveIdentityRequired;
-                    result.IsEffectiveIdentityRolesRequired = datasets.IsEffectiveIdentityRolesRequired;
-
                     // Generate Embed Token.
 
-                    var rls = new EffectiveIdentity(userName, new List<string> { RlsDatasetId });
+                    var rls = new EffectiveIdentity(userName, DashboardRlsDatasetIds.Split(','));
                     if (!string.IsNullOrWhiteSpace(roles))
                     {
                         var rolesList = new List<string>();

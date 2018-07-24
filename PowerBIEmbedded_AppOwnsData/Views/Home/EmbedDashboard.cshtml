@@ -27,14 +27,6 @@
 
 <div id="dashboardContainer"></div>
 
-<div class="infoBox">
-    Code is in files:<br />
-    1) HomeController.cs<br />
-    2) EmbedDashboard.cshtml
-</div>
-
-@Html.Partial("LiveDemoLink")
-
 <script>
     // Read embed application token from Model
     var accessToken = "@Model.EmbedToken.Token";
