@@ -233,6 +233,7 @@
     <Content Include="Views\Home\EmbedReportRls.cshtml" />
     <Content Include="Views\Home\EmbedReportAas.cshtml" />
     <None Include="Properties\PublishProfiles\xtestpowerbirls - Web Deploy.pubxml" />
+    <Content Include="Views\Home\EmbedDashboardRls.cshtml" />
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>

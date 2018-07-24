@@ -25,6 +25,7 @@ namespace PowerBIEmbedded_AppOwnsData.Controllers
         private static readonly string ReportId = ConfigurationManager.AppSettings["reportId"];
         private static readonly string ReportRlsId = ConfigurationManager.AppSettings["reportRlsId"];
         private static readonly string ReportAasId = ConfigurationManager.AppSettings["reportAasId"];
+        private static readonly string RlsDatasetId = ConfigurationManager.AppSettings["rlsDatasetId"];
 
         public ActionResult Index()
         {
@@ -142,7 +143,7 @@ namespace PowerBIEmbedded_AppOwnsData.Controllers
 
         public async Task<ActionResult> EmbedReportRls(string userName, string roles)
         {
-            roles = "User";
+            roles = "Client User";
 
             var result = new EmbedConfig();
             try
@@ -332,7 +333,7 @@ namespace PowerBIEmbedded_AppOwnsData.Controllers
                     if (!string.IsNullOrEmpty(username))
                     {
                         var rls = new EffectiveIdentity(
-                            Username, 
+                            Username,
                             new List<string> { report.DatasetId },
                             null,
                             "PowerBi itself do not accept any arguments when we request token " +
@@ -355,7 +356,7 @@ namespace PowerBIEmbedded_AppOwnsData.Controllers
                         //}
                         // Generate Embed Token with effective identities.
                         generateTokenRequestParameters = new GenerateTokenRequest(
-                            accessLevel: "view", 
+                            accessLevel: "view",
                             identities: new List<EffectiveIdentity> { rls });
                     }
                     else
@@ -495,6 +496,124 @@ namespace PowerBIEmbedded_AppOwnsData.Controllers
                 };
 
                 return View(embedConfig);
+            }
+        }
+
+        public async Task<ActionResult> EmbedDashboardRls(string userName)
+        {
+            var roles = "Client User";
+
+            var result = new EmbedConfig();
+
+            result.Username = userName;
+            result.Roles = roles;
+
+            if (userName == "Northridge")
+            {
+                result.Username = userName;
+                userName = "northridge@bke.email";
+            }
+            else
+            {
+                result.Username = "Deltennium";
+                userName = "deltennium@bke.email";
+            }
+
+            var error = GetWebConfigErrors();
+            if (error != null)
+            {
+                return View(new EmbedConfig()
+                {
+                    ErrorMessage = error
+                });
+            }
+
+            try
+            {
+                // Create a user password cradentials.
+                var credential = new UserPasswordCredential(Username, Password);
+
+                // Authenticate using created credentials
+                var authenticationContext = new AuthenticationContext(AuthorityUrl);
+                var authenticationResult = await authenticationContext.AcquireTokenAsync(ResourceUrl, ClientId, credential);
+
+                if (authenticationResult == null)
+                {
+                    return View(new EmbedConfig()
+                    {
+                        ErrorMessage = "Authentication Failed."
+                    });
+                }
+
+                var tokenCredentials = new TokenCredentials(authenticationResult.AccessToken, "Bearer");
+
+                // Create a Power BI Client object. It will be used to call Power BI APIs.
+                using (var client = new PowerBIClient(new Uri(ApiUrl), tokenCredentials))
+                {
+                    // Get a list of dashboards.
+                    var dashboards = await client.Dashboards.GetDashboardsInGroupAsync(GroupId);
+
+                    // Get the first report in the group.
+                    var dashboard = dashboards.Value.FirstOrDefault();
+
+                    if (dashboard == null)
+                    {
+                        return View(new EmbedConfig()
+                        {
+                            ErrorMessage = "Group has no dashboards."
+                        });
+                    }
+
+                    var datasets = await client.Datasets.GetDatasetByIdInGroupAsync(GroupId, RlsDatasetId);
+                    result.IsEffectiveIdentityRequired = datasets.IsEffectiveIdentityRequired;
+                    result.IsEffectiveIdentityRolesRequired = datasets.IsEffectiveIdentityRolesRequired;
+
+                    // Generate Embed Token.
+
+                    var rls = new EffectiveIdentity(userName, new List<string> { RlsDatasetId });
+                    if (!string.IsNullOrWhiteSpace(roles))
+                    {
+                        var rolesList = new List<string>();
+                        rolesList.AddRange(roles.Split(','));
+                        rls.Roles = rolesList;
+                    }
+
+                    // Generate Embed Token with effective identities.
+                    var generateTokenRequestParameters = new GenerateTokenRequest(accessLevel: "view", identities: new List<EffectiveIdentity> { rls });
+
+                    var tokenResponse = await client.Dashboards.GenerateTokenInGroupAsync(GroupId, dashboard.Id, generateTokenRequestParameters);
+
+                    if (tokenResponse == null)
+                    {
+                        result.ErrorMessage = "Failed to generate embed token.";
+                        return View(result);
+                    }
+
+                    // Generate Embed Configuration.
+                    result.EmbedToken = tokenResponse;
+                    result.EmbedUrl = dashboard.EmbedUrl;
+                    result.Id = dashboard.Id;
+
+                    if (tokenResponse == null)
+                    {
+                        return View(new EmbedConfig()
+                        {
+                            ErrorMessage = "Failed to generate embed token."
+                        });
+                    }
+
+                    return View(result);
+                }
+            }
+            catch (HttpOperationException exc)
+            {
+                result.ErrorMessage = string.Format("Status: {0} ({1})\r\nResponse: {2}\r\nRequestId: {3}", exc.Response.StatusCode, (int)exc.Response.StatusCode, exc.Response.Content, exc.Response.Headers["RequestId"].FirstOrDefault());
+                throw exc;
+            }
+            catch (Exception exc)
+            {
+                result.ErrorMessage = exc.ToString();
+                throw exc;
             }
         }
 
