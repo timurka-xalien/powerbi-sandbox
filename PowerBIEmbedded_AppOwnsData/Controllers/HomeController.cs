@@ -25,7 +25,6 @@ namespace PowerBIEmbedded_AppOwnsData.Controllers
         private static readonly string ReportId = ConfigurationManager.AppSettings["reportId"];
         private static readonly string ReportRlsId = ConfigurationManager.AppSettings["reportRlsId"];
         private static readonly string ReportAasId = ConfigurationManager.AppSettings["reportAasId"];
-        private static readonly string DashboardRlsDatasetIds = ConfigurationManager.AppSettings["dashboardRlsDatasetIds"];
 
         public ActionResult Index()
         {
@@ -565,8 +564,9 @@ namespace PowerBIEmbedded_AppOwnsData.Controllers
                     }
 
                     // Generate Embed Token.
+                    var dataSetIds = await GetDashboardDatasetIdsAsync(client, dashboard.Id, GroupId);
 
-                    var rls = new EffectiveIdentity(userName, DashboardRlsDatasetIds.Split(','));
+                    var rls = new EffectiveIdentity(userName, dataSetIds);
                     if (!string.IsNullOrWhiteSpace(roles))
                     {
                         var rolesList = new List<string>();
@@ -611,6 +611,17 @@ namespace PowerBIEmbedded_AppOwnsData.Controllers
                 result.ErrorMessage = exc.ToString();
                 throw exc;
             }
+        }
+
+        internal async Task<List<string>> GetDashboardDatasetIdsAsync(PowerBIClient client, string dashboardId, string groupId)
+        {
+            // Get a list of all tiles belonging to dashboard
+            var tiles = (await client.Dashboards.GetTilesAsync(groupId, dashboardId)).Value;
+
+            if (!tiles.Any() || tiles.All(t => string.IsNullOrWhiteSpace(t.DatasetId)))
+                return new List<string>();
+
+            return tiles.Select(t => t.DatasetId).ToList();
         }
 
         public async Task<ActionResult> EmbedTile()
